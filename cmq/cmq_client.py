@@ -14,13 +14,17 @@ import sys
 
 URISEC = '/v2/index.php'
 
+
 class CMQClient:
-    def __init__(self, host, secretId, secretKey, version="SDK_Python_1.3", logger=None):
+    def __init__(self, host, secretId, secretKey, version="SDK_Python_1.3", logger=False):
         self.host, self.is_https = self.process_host(host)
         self.secretId = secretId
         self.secretKey = secretKey
         self.version = version
-        self.logger = CMQLogger.get_logger() if logger is None else logger
+        if logger:
+            self.logger = CMQLogger.get_logger()
+        else:
+            self.logger = None
         self.http = CMQHttp(self.host, logger=logger, is_https=self.is_https)
         self.sign_method = 'sha1'
         if self.logger:
@@ -32,6 +36,7 @@ class CMQClient:
         method: POST OR GET
         """
         self.method = method.upper()
+
     def set_sign_method(self, sign_method='sha1'):
         '''
         @function : set sign method , and current support sha1 and sha256 method 
@@ -42,7 +47,7 @@ class CMQClient:
             self.sign_method = sign_method
         else:
             raise CMQClientParameterException('Only support sha1 or sha256. invalid method:%s' % sign_method)
-        
+
     def set_log_level(self, log_level):
         if self.logger:
             CMQLogger.validate_loglevel(log_level)
@@ -89,13 +94,13 @@ class CMQClient:
 
         if (('Timestamp' in _params) != True):
             _params['Timestamp'] = int(time.time())
-            
+
         if (('SignatureMethod' in _params) != True):
             if self.sign_method == 'sha256':
                 _params['SignatureMethod'] = 'HmacSHA256'
             else:
                 _params['SignatureMethod'] = 'HmacSHA1'
-                
+
         sign = Sign(self.secretId, self.secretKey)
         _params['Signature'] = sign.make(self.host, req_inter.uri, _params, req_inter.method, self.sign_method)
 
@@ -133,7 +138,7 @@ class CMQClient:
 
         return resp_inter
 
-#===============================================queue operation===============================================#
+    # ===============================================queue operation===============================================#
 
     def create_queue(self, params):
         resp_inter = self.request('CreateQueue', params)
@@ -142,7 +147,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("CreateQueue RequestId:%s QueueName:%s QueueId:%s" % \
-                (ret['requestId'], params['queueName'], ret['queueId']))
+                              (ret['requestId'], params['queueName'], ret['queueId']))
 
     def delete_queue(self, params):
         resp_inter = self.request('DeleteQueue', params)
@@ -151,7 +156,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("DeleteQueue RequestId:%s QueueName:%s" % \
-                (ret['requestId'], params['queueName']))
+                              (ret['requestId'], params['queueName']))
 
     def list_queue(self, params):
         resp_inter = self.request('ListQueue', params)
@@ -169,8 +174,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("RewindQueue RequestId:%s QueueName:%s" % \
-                (ret['requestId'], params['queueName']))
-
+                              (ret['requestId'], params['queueName']))
 
     def set_queue_attributes(self, params):
         resp_inter = self.request('SetQueueAttributes', params)
@@ -179,8 +183,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("SetQueueAttributes RequestId:%s QueueName:%s" % \
-                (ret['requestId'], params['queueName']))
-
+                              (ret['requestId'], params['queueName']))
 
     def get_queue_attributes(self, params):
         resp_inter = self.request('GetQueueAttributes', params)
@@ -189,7 +192,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("GetQueueAttributes RequestId:%s QueueName:%s" % \
-                (ret['requestId'], params['queueName']))
+                              (ret['requestId'], params['queueName']))
         return ret
 
     def send_message(self, params):
@@ -199,7 +202,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("SendMessage RequestId:%s QueueName:%s MsgId:%s" % \
-                (ret['requestId'], params['queueName'], ret['msgId']))
+                              (ret['requestId'], params['queueName'], ret['msgId']))
         return ret['msgId']
 
     def batch_send_message(self, params):
@@ -209,8 +212,8 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("BatchSendMessage RequestId:%s QueueName:%s MessageCount:%s MessageInfo\n%s" % \
-                (ret['requestId'], params['queueName'], len(ret['msgList']), \
-                 "\n".join(["MessageId:%s" % (msg['msgId']) for msg in ret['msgList']])))
+                              (ret['requestId'], params['queueName'], len(ret['msgList']), \
+                               "\n".join(["MessageId:%s" % (msg['msgId']) for msg in ret['msgList']])))
         return ret['msgList']
 
     def receive_message(self, params):
@@ -221,8 +224,12 @@ class CMQClient:
         if self.logger:
             self.logger.debug("ReceiveMessage RequestId:%s QueueName:%s PollingWaitSeconds:%s MsgId:%s ReceiptHandle:%s \
             EnqueueTime:%s NextVisibleTime:%s FirstDequeueTime:%s DequeueCount:%s" % \
-                (ret['requestId'], params['queueName'], params.get('pollingWaitSeconds', ''), ret['msgId'], ret['receiptHandle'],
-                 ret['enqueueTime'], ret['nextVisibleTime'], ret['firstDequeueTime'], ret['dequeueCount']))
+                              (
+                                  ret['requestId'], params['queueName'], params.get('pollingWaitSeconds', ''),
+                                  ret['msgId'],
+                                  ret['receiptHandle'],
+                                  ret['enqueueTime'], ret['nextVisibleTime'], ret['firstDequeueTime'],
+                                  ret['dequeueCount']))
         return ret
 
     def batch_receive_message(self, params):
@@ -231,10 +238,14 @@ class CMQClient:
 
         ret = json.loads(resp_inter.data)
         if self.logger:
-            self.logger.debug("BatchReceiveMessage RequestId:%s QueueName:%s PollingWaitSeconds:%s BatchSize:%s MessageCount:%s MessageInfo\n%s" % \
-                (ret['requestId'], params['queueName'], params.get('pollingWaitSeconds', ''), params['numOfMsg'], len(ret['msgInfoList']), \
-                 "\n".join(["MessageId:%s ReceiptHandle:%s EnqueueTime:%s NextVisibleTime:%s FirstDequeueTime:%s DequeueCount:%s" % \
-                            (msg['msgId'], msg['receiptHandle'], msg['enqueueTime'], msg['nextVisibleTime'], msg['firstDequeueTime'], msg['dequeueCount']) for msg in ret['msgInfoList']])))
+            self.logger.debug(
+                "BatchReceiveMessage RequestId:%s QueueName:%s PollingWaitSeconds:%s BatchSize:%s MessageCount:%s MessageInfo\n%s" % \
+                (ret['requestId'], params['queueName'], params.get('pollingWaitSeconds', ''), params['numOfMsg'],
+                 len(ret['msgInfoList']), \
+                 "\n".join([
+                     "MessageId:%s ReceiptHandle:%s EnqueueTime:%s NextVisibleTime:%s FirstDequeueTime:%s DequeueCount:%s" % \
+                     (msg['msgId'], msg['receiptHandle'], msg['enqueueTime'], msg['nextVisibleTime'],
+                      msg['firstDequeueTime'], msg['dequeueCount']) for msg in ret['msgInfoList']])))
         return ret['msgInfoList']
 
     def delete_message(self, params):
@@ -244,8 +255,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("DeleteMessage RequestId:%s QueueName:%s ReceiptHandle:%s" % \
-                (ret['requestId'], params['queueName'], params['receiptHandle']))
-
+                              (ret['requestId'], params['queueName'], params['receiptHandle']))
 
     def batch_delete_message(self, params):
         resp_inter = self.request('BatchDeleteMessage', params)
@@ -254,9 +264,10 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("BatchDeleteMessage RequestId:%s QueueName:%s ReceiptHandles\n%s" % \
-                (ret['requestId'], params['queueName'], "\n".join([str(params[key]) for key in list(params.keys()) if 'receiptHandle.' in key])))
+                              (ret['requestId'], params['queueName'],
+                               "\n".join([str(params[key]) for key in list(params.keys()) if 'receiptHandle.' in key])))
 
-#=======================================================topic operation====================================#
+    # =======================================================topic operation====================================#
     def create_topic(self, params):
         resp_inter = self.request('CreateTopic', params)
         self.check_status(resp_inter)
@@ -264,7 +275,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("CreateTopic RequestId:%s TopicName:%s TopicId:%s" % \
-                (ret['requestId'], params['topicName'], ret['topicId']))
+                              (ret['requestId'], params['topicName'], ret['topicId']))
 
     def delete_topic(self, params):
         resp_inter = self.request('DeleteTopic', params)
@@ -273,7 +284,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("DeleteTopic RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
+                              (ret['requestId'], params['topicName']))
 
     def list_topic(self, params):
         resp_inter = self.request('ListTopic', params)
@@ -284,7 +295,6 @@ class CMQClient:
             self.logger.debug("ListTopic RequestId:%s TopicTotalCount:%d" % (ret['requestId'], ret['totalCount']))
         return ret
 
-
     def set_topic_attributes(self, params):
         resp_inter = self.request('SetTopicAttributes', params)
         self.check_status(resp_inter)
@@ -292,8 +302,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("SetTopicAttributes RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
-
+                              (ret['requestId'], params['topicName']))
 
     def get_topic_attributes(self, params):
         resp_inter = self.request('GetTopicAttributes', params)
@@ -302,8 +311,8 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("GetTopicAttributes RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
-        return ret  
+                              (ret['requestId'], params['topicName']))
+        return ret
 
     def publish_message(self, params):
         resp_inter = self.request('PublishMessage', params)
@@ -312,7 +321,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("PublishMessage RequestId:%s TopicName:%s MsgId:%s" % \
-                (ret['requestId'], params['topicName'], ret['msgId']))
+                              (ret['requestId'], params['topicName'], ret['msgId']))
         return ret['msgId']
 
     def batch_publish_message(self, params):
@@ -322,10 +331,11 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("BatchPublishMessage RequestId:%s TopicName:%s MessageCount:%s MessageInfo\n%s" % \
-                (ret['requestId'], params['topicName'], len(ret['msgList']), \
-                 "\n".join(["MessageId:%s" % (msg['msgId']) for msg in ret['msgList']])))
-        return ret['msgList']  
-#========================================Subscription operation===========================================#
+                              (ret['requestId'], params['topicName'], len(ret['msgList']), \
+                               "\n".join(["MessageId:%s" % (msg['msgId']) for msg in ret['msgList']])))
+        return ret['msgList']
+
+    # ========================================Subscription operation===========================================#
     def create_subscription(self, params):
         resp_inter = self.request('Subscribe', params)
         self.check_status(resp_inter)
@@ -333,7 +343,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("Create subscription RequestId:%s subscription Name:%s subscripton Id:%s" % \
-                (ret['requestId'], params['subscriptionName'], ret['subscriptionId']))
+                              (ret['requestId'], params['subscriptionName'], ret['subscriptionId']))
 
     def delete_subscription(self, params):
         resp_inter = self.request('Unsubscribe', params)
@@ -342,7 +352,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("DeleteTopic RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
+                              (ret['requestId'], params['topicName']))
 
     def clear_filterTags(self, params):
         resp_inter = self.request('ClearSubscriptionFilterTags', params)
@@ -351,8 +361,7 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("ClearSubscriptionFilterTags RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
-
+                              (ret['requestId'], params['topicName']))
 
     def list_subscription(self, params):
         resp_inter = self.request('ListSubscriptionByTopic', params)
@@ -363,7 +372,6 @@ class CMQClient:
             self.logger.debug("ListTopic RequestId:%s TopicTotalCount:%d" % (ret['requestId'], ret['totalCount']))
         return ret
 
-
     def set_subscription_attributes(self, params):
         resp_inter = self.request('SetSubscriptionAttributes', params)
         self.check_status(resp_inter)
@@ -371,8 +379,8 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("Set subscription Attributes RequestId:%s TopicName:%s" % \
-                (ret['requestId'] if 'requestId' in ret else '', params['topicName'] if 'topicName' in ret else '' ))
-
+                              (ret['requestId'] if 'requestId' in ret else '',
+                               params['topicName'] if 'topicName' in ret else ''))
 
     def get_subscription_attributes(self, params):
         resp_inter = self.request('GetSubscriptionAttributes', params)
@@ -381,8 +389,5 @@ class CMQClient:
         ret = json.loads(resp_inter.data)
         if self.logger:
             self.logger.debug("GetTopicAttributes RequestId:%s TopicName:%s" % \
-                (ret['requestId'], params['topicName']))
-        return ret  
-
-
-
+                              (ret['requestId'], params['topicName']))
+        return ret
