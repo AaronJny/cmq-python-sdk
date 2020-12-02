@@ -6,11 +6,14 @@ from .queue import Queue
 from cmq.cmq_tool import CMQLogger
 from cmq.topic import Topic
 from cmq.subscription import Subscription
+
+
 class Account:
     """
     Account类对象不是线程安全的，如果多线程使用，需要每个线程单独初始化Account类对象
     """
-    def __init__(self, host, secretId, secretKey, debug=False):
+
+    def __init__(self, host, secretId, secretKey, debug=False, logger=False):
         """
             @type host: string
             @param host: 访问的url，例如：https://cmq-queue-gz.api.qcloud.com
@@ -27,15 +30,19 @@ class Account:
         self.secretId = secretId
         self.secretKey = secretKey
         self.debug = debug
-        self.logger = CMQLogger.get_logger()
+        if logger:
+            self.logger = CMQLogger.get_logger()
+        else:
+            self.logger = None
         self.cmq_client = CMQClient(host, secretId, secretKey, logger=self.logger)
-        
+
     def set_sign(self, sign='sha256'):
         '''
           @fucntion set_sign : set sign method 
           @sign  sha256 or sha1 
         '''
         self.cmq_client.set_sign_method(sign)
+
     def set_debug(self, debug):
         self.debug = debug
 
@@ -52,7 +59,6 @@ class Account:
         """ 关闭日志打印
         """
         self.cmq_client.close_log()
-
 
     def set_client(self, host, secretId=None, secretKey=None):
         """ 设置访问的url
@@ -95,7 +101,7 @@ class Account:
         return self.cmq_client
 
     def list_queue(self, searchWord="", limit=-1, offset=""):
-        
+
         """ 列出Account的队列
 
             @type searchWord: string
@@ -135,9 +141,9 @@ class Account:
             @return Topic object
         """
         return Topic(topicName, self.cmq_client, self.debug)
-    
+
     def list_topic(self, searchWord="", limit=-1, offset=""):
-        
+
         """ 列出Account的主题
 
             @type searchWord: string
@@ -170,7 +176,6 @@ class Account:
 
         return (ret_pkg['totalCount'], ret_pkg['topicList'], next_offset)
 
-    
     def get_subscription(self, topicName, subscriptionName):
         ''' 获取订阅
             @type topicName :string
@@ -183,15 +188,9 @@ class Account:
         
         '''
         return Subscription(topicName, subscriptionName, self.cmq_client, self.debug)
-    
-    
-    
 
-    
     def debuginfo(self, RequestId):
         if self.debug:
             print("===================DEBUG INFO===================")
             print("RequestId: %s" % RequestId)
             print("================================================")
-      
-	
